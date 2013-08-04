@@ -7,10 +7,10 @@ ares
   不是返回cache自己的handle.省去了让用户管理cache_handle的过程。
 
 
-使用方法：
-在Makefile中指定BOOST路径
-make clean
-make
-./test_objcache
+使用方法:</br>
+在Makefile中指定BOOST路径</br>
+make clean</br>
+make</br>
+./test_objcache</br>
 
 
