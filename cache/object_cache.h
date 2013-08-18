@@ -14,7 +14,7 @@
 
 namespace ares {
 class Slice;
-class CacheVisitor;
+class ObjectCacheVisitor;
 
 class ObjectCache {
 public:
@@ -26,7 +26,7 @@ public:
 	virtual bool Check(const Slice & key) = 0;
 	virtual bool Remove(const Slice & key) = 0;
 	virtual void Clear() = 0;
-	virtual void Visit(CacheVisitor & visitor) = 0;
+	virtual void Visit(ObjectCacheVisitor & visitor) = 0;
 };
 
 extern boost::shared_ptr<ObjectCache> newShardedLRUObjectCache(uint64_t charge_cap, uint32_t count_cap);

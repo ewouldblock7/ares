@@ -13,11 +13,19 @@
 namespace ares {
 class Slice;
 
-class CacheVisitor {
+class ObjectCacheVisitor {
 public:
-	CacheVisitor(){};
-	virtual ~CacheVisitor(){};
+	ObjectCacheVisitor(){};
+	virtual ~ObjectCacheVisitor(){};
 	virtual void visit(const Slice & key, const boost::shared_ptr<void> & value) = 0;
+
+};
+
+class StringCacheVisitor {
+public:
+	StringCacheVisitor(){};
+	virtual ~StringCacheVisitor(){};
+	virtual void visit(const Slice & key, const Slice & value) = 0;
 
 };
 

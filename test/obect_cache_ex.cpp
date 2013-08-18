@@ -14,7 +14,7 @@
 #include "string/slice.h"
 #include "cache/cache_visitor.h"
 #include "cache/object_cache.h"
-#include "thread/thread.h"
+#include "thread/runnable.h"
 
 using namespace ares;
 
@@ -28,7 +28,7 @@ void DelTestObject(void * arg){
 	delete tobject;
 }
 
-class TestVisitor : public ares::CacheVisitor{
+class TestVisitor : public ares::ObjectCacheVisitor{
 public:
 	TestVisitor() : count_(0) {}
 	~TestVisitor() {}
@@ -90,23 +90,26 @@ int main(int argc, char ** argv){
 	objectCache->Visit(visitor);
 	fprintf(stderr, "TestVisitor count: %u \n", visitor.GetCount());
 
-	TestRun run1(objectCache, 0);
-	TestRun run2(objectCache, 1);
-	TestRun run3(objectCache, 2);
-	TestRun run4(objectCache, 3);
 
-	Thread t1(&run1);
-	Thread t2(&run2);
-	Thread t3(&run3);
-	Thread t4(&run4);
-	t1.start();
-	t2.start();
-	t3.start();
-	t4.start();
-	t1.join();
-	t2.join();
-	t3.join();
-	t4.join();
+	uint32_t runnum = 4;
+	TestRun ** runnables = new TestRun*[runnum];
+	for(uint32_t i = 0; i < runnum; ++i){
+		runnables[i] = new TestRun(objectCache, i);
+	}
+
+
+	for(uint32_t i = 0; i < runnum; ++i){
+		runnables[i]->run();
+	}
+
+	for(uint32_t i = 0; i < runnum; ++i){
+		runnables[i]->join();
+	}
+
+	for(uint32_t i = 0; i < runnum; ++i){
+		delete runnables[i];
+	}
+	delete [] runnables;
 
 	TestVisitor visitor2;
 	objectCache->Visit(visitor2);

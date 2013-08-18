@@ -6,13 +6,14 @@
  *      Author: seven
  */
 
+#include "cache/object_cache.h"
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "cache/cache_visitor.h"
-#include "cache/object_cache.h"
+#include "cache/cache_table.h"
 #include "lock/mutex.h"
 #include "string/slice.h"
 #include "util/hash.h"
@@ -45,77 +46,77 @@ struct LRUObjectHandle {
 	}
 };
 
-class ObjectCacheTable{
-public:
-	ObjectCacheTable() :
-		slots_(NULL),
-		ele_num_(0),
-		slot_size_(0){
-		resize();
-	}
-
-	~ObjectCacheTable(){
-		delete [] slots_;
-	}
-
-	LRUObjectHandle * Insert(LRUObjectHandle * handle){
-		LRUObjectHandle ** ptr = findPtr(handle->key(), handle->hash_);
-		LRUObjectHandle * old = *ptr;
-		handle->next_  = (old = NULL ? old->next_ : NULL);
-		*ptr = handle;
-
-		if(ele_num_ > slot_size_<<2){
-			resize();
-		}
-		return old;
-	}
-	LRUObjectHandle * Get(const Slice & key, uint32_t hash){
-		LRUObjectHandle ** ptr = findPtr(key, hash);
-		return *ptr;
-	}
-	bool Check(const Slice & key, uint32_t hash){
-		LRUObjectHandle ** ptr = findPtr(key, hash);
-		return *ptr != NULL;
-	}
-private:
-	LRUObjectHandle ** findPtr(const Slice & key, uint32_t hash){
-		LRUObjectHandle ** ptr = &slots_[hash & (slot_size_ - 1)];
-		while(*ptr && (*ptr)->hash_ != hash && (*ptr)->key() != key){
-			ptr = &(*ptr)->next_;
-		}
-		return ptr;
-	}
-
-	void resize() {
-		uint32_t base = 8;
-		while(ele_num_ > base<<2){
-			base<<=1;
-		}
-
-		LRUObjectHandle ** newSlot = new LRUObjectHandle *[base];
-		memset(newSlot, 0, sizeof(*newSlot) * base);
-		uint32_t count = 0;
-		for(uint32_t i = 0; i < ele_num_; ++i){
-			LRUObjectHandle * ptr = slots_[i];
-			while(ptr){
-				LRUObjectHandle * tmp = ptr->next_;
-				LRUObjectHandle **ptr2 = &newSlot[ptr->hash_ & (base - 1)];
-				ptr->next_ = *ptr2;
-				*ptr2 = ptr;
-				ptr = tmp;
-				++count;
-			}
-		}
-
-		assert(count == ele_num_);
-		slot_size_ = base;
-		slots_ = newSlot;
-	}
-
-	LRUObjectHandle ** slots_;
-	uint32_t slot_size_;
-	uint32_t ele_num_;
-};
+//class ObjectCacheTable{
+//public:
+//	ObjectCacheTable() :
+//		slots_(NULL),
+//		ele_num_(0),
+//		slot_size_(0){
+//		resize();
+//	}
+//
+//	~ObjectCacheTable(){
+//		delete [] slots_;
+//	}
+//
+//	LRUObjectHandle * Insert(LRUObjectHandle * handle){
+//		LRUObjectHandle ** ptr = findPtr(handle->key(), handle->hash_);
+//		LRUObjectHandle * old = *ptr;
+//		handle->next_  = (old = NULL ? old->next_ : NULL);
+//		*ptr = handle;
+//
+//		if(ele_num_ > slot_size_){
+//			resize();
+//		}
+//		return old;
+//	}
+//	LRUObjectHandle * Get(const Slice & key, uint32_t hash){
+//		LRUObjectHandle ** ptr = findPtr(key, hash);
+//		return *ptr;
+//	}
+//	bool Check(const Slice & key, uint32_t hash){
+//		LRUObjectHandle ** ptr = findPtr(key, hash);
+//		return *ptr != NULL;
+//	}
+//private:
+//	LRUObjectHandle ** findPtr(const Slice & key, uint32_t hash){
+//		LRUObjectHandle ** ptr = &slots_[hash & (slot_size_ - 1)];
+//		while(*ptr && (*ptr)->hash_ != hash && (*ptr)->key() != key){
+//			ptr = &(*ptr)->next_;
+//		}
+//		return ptr;
+//	}
+//
+//	void resize() {
+//		uint32_t base = 8;
+//		while(ele_num_ > base<<2){
+//			base<<=1;
+//		}
+//
+//		LRUObjectHandle ** newSlot = new LRUObjectHandle *[base];
+//		memset(newSlot, 0, sizeof(*newSlot) * base);
+//		uint32_t count = 0;
+//		for(uint32_t i = 0; i < ele_num_; ++i){
+//			LRUObjectHandle * ptr = slots_[i];
+//			while(ptr){
+//				LRUObjectHandle * tmp = ptr->next_;
+//				LRUObjectHandle **ptr2 = &newSlot[ptr->hash_ & (base - 1)];
+//				ptr->next_ = *ptr2;
+//				*ptr2 = ptr;
+//				ptr = tmp;
+//				++count;
+//			}
+//		}
+//
+//		assert(count == ele_num_);
+//		slot_size_ = base;
+//		slots_ = newSlot;
+//	}
+//
+//	LRUObjectHandle ** slots_;
+//	uint32_t slot_size_;
+//	uint32_t ele_num_;
+//};
 
 
 class LRUObjectCache{
@@ -145,7 +146,7 @@ public:
 		handle->charge_ = charge;
 		handle->hash_ = hash;
 		memcpy(handle->key_, key.data(), key.size());
-		LRUObjectHandle * old = table_.Insert(handle);
+		LRUObjectHandle * old = table_.Insert(key, handle);
 		if(old) {
 			ARES_DEBUG("has old");
 			LRURemove(old);
@@ -154,12 +155,13 @@ public:
 		LRUAppend(handle);
 		++count_;
 		charge_ += charge;
-		if((count_ > cap_count_ || charge_ > cap_charge_) && head_.lru_prev_ != &head_){
+		while((count_ > cap_count_ || charge_ > cap_charge_) && head_.lru_prev_ != &head_){
 			ARES_DEBUG("idx:[%u] over full count: %u, cap_count: %u, charge: %lu, cap_charge_: %lu",
 					idx_, count_, cap_count_, charge_, cap_charge_);
 			LRUObjectHandle * oldest = head_.lru_prev_;
 			assert(oldest != &head_);
 			assert(oldest != NULL);
+			table_.Remove(oldest->key(), oldest->hash_);
 			LRURemove(oldest);
 			deRef(oldest);
 		}
@@ -202,7 +204,7 @@ public:
 		DoClear();
 	}
 
-	void Visit(CacheVisitor & visitor){
+	void Visit(ObjectCacheVisitor & visitor){
 		LRUObjectHandle * ptr = head_.lru_next_;
 		while(ptr != &head_){
 			visitor.visit(ptr->key(), *ptr->value_);
@@ -236,7 +238,7 @@ private:
 		free(handle);
 	}
 
-	ObjectCacheTable table_;
+	CacheTable<LRUObjectHandle> table_;
 	LRUObjectHandle head_;
 	Mutex mutex_;
 	uint64_t cap_charge_;
@@ -294,7 +296,7 @@ public:
 			shards_[i]->Clear();
 		}
 	}
-	void Visit(CacheVisitor & visitor){
+	void Visit(ObjectCacheVisitor & visitor){
 		for(uint32_t i = 0; i < shard_num_; ++i){
 			shards_[i]->Visit(visitor);
 		}
