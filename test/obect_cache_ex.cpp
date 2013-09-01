@@ -11,10 +11,9 @@
 #include <iostream>
 #include <string>
 #include <sstream>
-#include "string/slice.h"
-#include "cache/cache_visitor.h"
-#include "cache/object_cache.h"
-#include "thread/runnable.h"
+#include "ares/slice.h"
+#include "ares/object_cache.h"
+#include "ares/runnable.h"
 
 using namespace ares;
 
@@ -28,7 +27,7 @@ void DelTestObject(void * arg){
 	delete tobject;
 }
 
-class TestVisitor : public ares::ObjectCacheVisitor{
+class TestVisitor : public ares::ObjectCache::Visitor{
 public:
 	TestVisitor() : count_(0) {}
 	~TestVisitor() {}

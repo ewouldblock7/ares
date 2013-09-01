@@ -11,10 +11,9 @@
 #include <iostream>
 #include <string>
 #include <sstream>
-#include "string/slice.h"
-#include "cache/cache_visitor.h"
-#include "cache/string_cache.h"
-#include "thread/runnable.h"
+#include "ares/slice.h"
+#include "ares/string_cache.h"
+#include "ares/runnable.h"
 
 using namespace ares;
 
@@ -42,7 +41,7 @@ private:
 	uint32_t index_;
 };
 
-class TestVisitor : public ares::StringCacheVisitor{
+class TestVisitor : public ares::StringCache::Visitor{
 public:
 	TestVisitor() : count_(0) {}
 	~TestVisitor() {}

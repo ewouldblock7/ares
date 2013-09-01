@@ -7,7 +7,7 @@
 
 #ifndef STRING_CACHE_H_
 #define STRING_CACHE_H_
-#include "cache/cache_common.h"
+#include "ares/cache_common.h"
 #include <boost/shared_ptr.hpp>
 
 namespace ares {
@@ -19,12 +19,20 @@ public:
 	StringCache();
 	virtual ~StringCache();
 
+	class Visitor {
+	public:
+		Visitor(){};
+		virtual ~Visitor(){};
+		virtual void visit(const Slice & key, const Slice & value) = 0;
+
+	};
+
 	virtual void Insert(const Slice & key, const Slice & value) = 0;
 	virtual void Get(const Slice & key, std::string & value) = 0;
 	virtual bool Check(const Slice & key) = 0;
 	virtual bool Remove(const Slice & key) = 0;
 	virtual void Clear() = 0;
-	virtual void Visit(StringCacheVisitor & visitor) = 0;
+	virtual void Visit(Visitor & visitor) = 0;
 
 };
 

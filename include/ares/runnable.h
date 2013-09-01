@@ -6,8 +6,8 @@
  *      Author: seven
  */
 
-#ifndef RUNNABLE_H_
-#define RUNNABLE_H_
+#ifndef ARES_RUNNABLE_H_
+#define ARES_RUNNABLE_H_
 #include <stdlib.h>
 #include <pthread.h>
 #include "util/log.h"
@@ -16,16 +16,12 @@ namespace ares {
 
 class Runnable {
 public:
-	Runnable() : th_(0){};
+	Runnable() : th_(0), running_(false){};
 	virtual ~Runnable(){};
 
 	virtual void run() = 0;
 
-	void start(){
-		if(pthread_create(&th_, NULL, thread_work, this)){
-			ARES_WARNING("start thread fail");
-		}
-	}
+	void start();
 
 	static void * thread_work(void * arg) {
 		Runnable * runnable = static_cast<Runnable *>(arg);
@@ -33,17 +29,19 @@ public:
 		return NULL;
 	}
 
-	void join(){
-		if(pthread_join(th_, NULL)){
-			ARES_WARNING("join thread fail");
-		}
-	}
+	void stop() {running_ = false;}
+
+	void join();
+
+
+protected:
+	pthread_t th_;
+	bool running_;
 
 private:
 	Runnable(const Runnable &);
 	Runnable & operator=(const Runnable &);
-	pthread_t th_;
 };
 
 } /* namespace ares */
-#endif /* RUNNABLE_H_ */
+#endif /* ARES_RUNNABLE_H_ */

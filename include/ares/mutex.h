@@ -6,28 +6,23 @@
  *      Author: seven
  */
 
-#ifndef MUTEX_H_
-#define MUTEX_H_
+#ifndef ARES_MUTEX_H_
+#define ARES_MUTEX_H_
 #include <pthread.h>
 
 namespace ares {
 
 class Mutex {
 public:
-	Mutex(){
-		pthread_mutex_init(&mutex_, NULL);
-	}
-	~Mutex(){
-		pthread_mutex_destroy(&mutex_);
-	}
+	Mutex();
+	~Mutex();
 
-	void Lock(){
-		pthread_mutex_lock(&mutex_);
-	}
+	void Lock();
 
-	void Unlock(){
-		pthread_mutex_unlock(&mutex_);
-	}
+	void Unlock();
+
+	pthread_mutex_t * getMutex() { return &mutex_;}
+
 
 private:
 	Mutex(const Mutex &);
@@ -53,4 +48,4 @@ private:
 };
 
 } /* namespace ares */
-#endif /* MUTEX_H_ */
+#endif /* ARES_MUTEX_H_ */

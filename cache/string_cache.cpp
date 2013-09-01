@@ -5,15 +5,14 @@
  *      Author: seven
  */
 
-#include "cache/string_cache.h"
+#include "ares/string_cache.h"
 #include <stdlib.h>
 #include <assert.h>
 #include <string>
 
+#include "ares/mutex.h"
+#include "ares/slice.h"
 #include "cache/cache_table.h"
-#include "cache/cache_visitor.h"
-#include "lock/mutex.h"
-#include "string/slice.h"
 #include "util/hash.h"
 #include "util/log.h"
 
@@ -125,7 +124,7 @@ public:
 		ClearWithoutLock();
 	}
 
-	void Visit(StringCacheVisitor & visitor) {
+	void Visit(StringCache::Visitor & visitor) {
 		MutexGuard guard(&mutex_);
 		LRUStringCacheHandle * ptr = head_.lru_next_;
 		while(ptr != &head_){
@@ -220,7 +219,7 @@ public:
 			lru_string_caches_[i]->Clear();
 		}
 	}
-	virtual void Visit(StringCacheVisitor & visitor) {
+	virtual void Visit(Visitor & visitor) {
 		for(uint32_t i = 0; i < slot_size_; ++i){
 			lru_string_caches_[i]->Visit(visitor);
 		}

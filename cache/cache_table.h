@@ -11,8 +11,6 @@
 #include <stdint.h>
 #include <assert.h>
 
-#include "util/log.h"
-
 namespace ares {
 
 template<class T>

@@ -14,5 +14,6 @@ ares
 make clean  
 make  
 ./test_objcache  
+./test_strcache  
 
 
