@@ -7,9 +7,11 @@
 
 #include "ares/string_cache.h"
 #include <stdlib.h>
+#include <sys/time.h>
+#include <limits.h>
 #include <assert.h>
 #include <string>
-
+#include <vector>
 #include "ares/mutex.h"
 #include "ares/slice.h"
 #include "cache/cache_table.h"
@@ -34,6 +36,7 @@ struct LRUStringCacheHandle{
 	uint32_t hash_;
 	uint32_t key_size_;
 	uint32_t value_size_;
+	uint32_t time_out_;
 	char buf_[0];
 
 	Slice key() {
@@ -58,13 +61,21 @@ public:
 		ClearWithoutLock();
 	}
 
-	void Insert(const Slice & key, const Slice & value, uint32_t hash){
+	void Insert(const Slice & key, const Slice & value, uint32_t hash, uint32_t timeout = 0){
 		uint32_t len = sizeof(LRUStringCacheHandle) + key.size() + value.size();
 		LRUStringCacheHandle * handle = reinterpret_cast<LRUStringCacheHandle *>(malloc(len));
 		memset(handle, 0, len);
 		handle->hash_ = hash;
 		handle->key_size_ = key.size();
 		handle->value_size_ = value.size();
+		struct timeval now_timeval;
+		gettimeofday(&now_timeval, NULL);
+		if(timeout && timeout < now_timeval.tv_sec){
+			timeout = now_timeval.tv_sec + timeout;
+		}else if(timeout == 0){
+			timeout = UINT_MAX;
+		}
+		handle->time_out_ = timeout;
 		memcpy(handle->buf_, key.data(), key.size());
 		memcpy(handle->buf_ + key.size(), value.data(), value.size());
 
@@ -75,10 +86,7 @@ public:
 			++count_;
 			size_ += len;
 			while((size_ > cap_size_ || count_ > cap_count_) && head_.lru_prev_ != &head_){
-				LRUStringCacheHandle * tmp = head_.lru_prev_;
-				cache_table_.Remove(tmp->key(), tmp->hash_);
-				LRURemove(tmp);
-				deRef(tmp);
+				Eliminate(now_timeval.tv_sec);
 			}
 		}else {
 			LRURemove(old);
@@ -91,19 +99,73 @@ public:
 		MutexGuard guard(&mutex_);
 		LRUStringCacheHandle * ptr = cache_table_.Get(key, hash);
 		if(ptr){
-			LRURemove(ptr);
-			LRUAppend(ptr);
-			value.assign(ptr->buf_ + key.size(), ptr->value_size_);
+			if(ptr->time_out_){
+				struct timeval now_timeval;
+				gettimeofday(&now_timeval, NULL);
+				if(now_timeval.tv_sec <= ptr->time_out_){
+					LRURemove(ptr);
+					LRUAppend(ptr);
+					value.assign(ptr->buf_ + key.size(), ptr->value_size_);
+				}else {
+					cache_table_.Remove(key, hash);
+					LRURemove(ptr);
+					deRef(ptr);
+				}
+			} else {
+				LRURemove(ptr);
+				LRUAppend(ptr);
+				value.assign(ptr->buf_ + key.size(), ptr->value_size_);
+			}
 		}
 		return value.size();
+	}
+
+	uint32_t Get(const Slice & key, uint32_t hash, char * value, uint32_t maxsize){
+		MutexGuard guard(&mutex_);
+		LRUStringCacheHandle * ptr = cache_table_.Get(key, hash);
+		int ret = 0;
+		if(ptr){
+			if(ptr->time_out_){
+				struct timeval now_timeval;
+				gettimeofday(&now_timeval, NULL);
+				if(now_timeval.tv_sec <= ptr->time_out_){
+					LRURemove(ptr);
+					LRUAppend(ptr);
+					ret = CopyValue(ptr, value, maxsize);
+				}else {
+					cache_table_.Remove(key, hash);
+					LRURemove(ptr);
+					deRef(ptr);
+				}
+			} else {
+				LRURemove(ptr);
+				LRUAppend(ptr);
+				ret = CopyValue(ptr, value, maxsize);
+			}
+		}
+		return ret;
 	}
 
 	bool Check(const Slice & key, uint32_t hash){
 		MutexGuard guard(&mutex_);
 		LRUStringCacheHandle * ptr = cache_table_.Get(key, hash);
 		if(ptr){
-			LRURemove(ptr);
-			LRUAppend(ptr);
+			if (ptr->time_out_) {
+				struct timeval now_timeval;
+				gettimeofday(&now_timeval, NULL);
+
+				if (now_timeval.tv_sec <= ptr->time_out_) {
+					LRURemove(ptr);
+					LRUAppend(ptr);
+				} else {
+					cache_table_.Remove(key, hash);
+					LRURemove(ptr);
+					deRef(ptr);
+				}
+			} else {
+				LRURemove(ptr);
+				LRUAppend(ptr);
+			}
 		}
 		return ptr != NULL;
 	}
@@ -155,6 +217,42 @@ private:
 		handle->lru_next_->lru_prev_ = handle->lru_prev_;
 	}
 
+	void Eliminate(uint32_t now_tick){
+
+		uint32_t times = 0;
+		std::vector<LRUStringCacheHandle *> recors;
+		for(LRUStringCacheHandle * ptr = head_.lru_prev_;
+				times < 20 && ptr != &head_; ptr = ptr->lru_prev_, ++times){
+			if (ptr->time_out_) {
+				if (now_tick > ptr->time_out_) {
+					recors.push_back(ptr);
+				}
+			}
+		};
+
+		LRUStringCacheHandle * ptr = head_.lru_prev_;
+		if (recors.empty() && ptr != & head_) {
+			recors.push_back(ptr);
+		}
+
+		for (std::vector<LRUStringCacheHandle *>::iterator ite = recors.begin();
+				ite != recors.end(); ++ite) {
+			cache_table_.Remove((*ite)->key(), (*ite)->hash_);
+			LRURemove (*ite);
+			deRef(*ite);
+		}
+
+	}
+
+	uint32_t CopyValue(LRUStringCacheHandle * ptr, char * value, uint32_t maxsize){
+		if(ptr->value_size_  + 1 <= maxsize){
+			memcpy(value, ptr->buf_ + ptr->key_size_, ptr->value_size_);
+			*(value + ptr->value_size_) = '\0';
+			return ptr->value_size_;
+		}
+		return 0;
+	}
+
 	void ClearWithoutLock(){
 		LRUStringCacheHandle * ptr = head_.lru_next_;
 		while(ptr != &head_){
@@ -194,15 +292,19 @@ public:
 		delete [] lru_string_caches_;
 	}
 
-	virtual void Insert(const Slice & key, const Slice & value) {
+	virtual void Insert(const Slice & key, const Slice & value, uint32_t timeout) {
 		uint32_t hash = Hash(key.data(), key.size());
-		ARES_DEBUG("insert to lru slot: %u", hash>>(32 - slot_bits_));
-		lru_string_caches_[hash>>(32 - slot_bits_)]->Insert(key, value, hash);
+		lru_string_caches_[hash>>(32 - slot_bits_)]->Insert(key, value, hash, timeout);
 	}
 
 	virtual void Get(const Slice & key, std::string & value) {
 		uint32_t hash = Hash(key.data(), key.size());
 		lru_string_caches_[hash>>(32 - slot_bits_)]->Get(key, hash, value);
+	}
+
+	virtual uint32_t Get(const Slice & key, char * value, uint32_t maxsize) {
+		uint32_t hash = Hash(key.data(), key.size());
+		return lru_string_caches_[hash>>(32 - slot_bits_)]->Get(key, hash, value, maxsize);
 	}
 
 	virtual bool Check(const Slice & key) {

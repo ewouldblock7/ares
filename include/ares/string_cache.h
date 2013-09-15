@@ -27,8 +27,9 @@ public:
 
 	};
 
-	virtual void Insert(const Slice & key, const Slice & value) = 0;
+	virtual void Insert(const Slice & key, const Slice & value, uint32_t timeout = 0) = 0;
 	virtual void Get(const Slice & key, std::string & value) = 0;
+	virtual uint32_t Get(const Slice & key, char * value, uint32_t maxsize) = 0;
 	virtual bool Check(const Slice & key) = 0;
 	virtual bool Remove(const Slice & key) = 0;
 	virtual void Clear() = 0;
