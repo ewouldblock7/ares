@@ -75,7 +75,6 @@ public:
 		memcpy(handle->key_, key.data(), key.size());
 		LRUObjectHandle * old = table_.Insert(key, handle);
 		if(old) {
-			ARES_DEBUG("has old");
 			LRURemove(old);
 			deRef(old);
 		}
@@ -129,10 +128,10 @@ public:
 		DoClear();
 	}
 
-	void Visit(ObjectCache::Visitor & visitor){
+	void Visit(ObjectCache::IterateVisitor & visitor){
 		LRUObjectHandle * ptr = head_.lru_next_;
 		while(ptr != &head_){
-			visitor.visit(ptr->key(), *ptr->value_);
+			visitor.Visit(ptr->key(), *ptr->value_);
 			ptr = ptr->lru_next_;
 		}
 	}
@@ -221,7 +220,7 @@ public:
 			shards_[i]->Clear();
 		}
 	}
-	void Visit(Visitor & visitor){
+	void Visit(IterateVisitor & visitor){
 		for(uint32_t i = 0; i < shard_num_; ++i){
 			shards_[i]->Visit(visitor);
 		}

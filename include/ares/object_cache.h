@@ -20,20 +20,20 @@ public:
 	ObjectCache();
 	virtual ~ObjectCache();
 
-	class Visitor {
+	class IterateVisitor {
 	public:
-		Visitor(){};
-		virtual ~Visitor(){};
-		virtual void visit(const Slice & key, const boost::shared_ptr<void> & value) = 0;
-
+		IterateVisitor(){};
+		virtual ~IterateVisitor(){};
+		virtual void Visit(const Slice & key, const boost::shared_ptr<void> & value) = 0;
 	};
+
 
 	virtual void Insert(const Slice & key, boost::shared_ptr<void> & value, uint32_t charge) = 0;
 	virtual boost::shared_ptr<void> Get(const Slice & key) = 0;
 	virtual bool Check(const Slice & key) = 0;
 	virtual bool Remove(const Slice & key) = 0;
 	virtual void Clear() = 0;
-	virtual void Visit(Visitor & visitor) = 0;
+	virtual void Visit(IterateVisitor & visitor) = 0;
 };
 
 extern boost::shared_ptr<ObjectCache> newShardedLRUObjectCache(uint64_t charge_cap, uint32_t count_cap);

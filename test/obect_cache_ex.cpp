@@ -27,11 +27,11 @@ void DelTestObject(void * arg){
 	delete tobject;
 }
 
-class TestVisitor : public ares::ObjectCache::Visitor{
+class TestVisitor : public ares::ObjectCache::IterateVisitor{
 public:
 	TestVisitor() : count_(0) {}
 	~TestVisitor() {}
-	void visit(const Slice & key, const boost::shared_ptr<void> & value){
+	void Visit(const Slice & key, const boost::shared_ptr<void> & value){
 		++count_;
 		const TestObject * tp = static_cast<TestObject *>(value.get());
 		fprintf(stderr, "visit key: %s, %lu\n", key.data(), tp->idx_);
