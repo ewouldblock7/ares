@@ -81,10 +81,10 @@ public:
 
 		MutexGuard guard(&mutex_);
 		LRUStringCacheHandle * old = cache_table_.Insert(key, handle);
+		++count_;
+		size_ += len;
 		if(!old){
 			LRUAppend(handle);
-			++count_;
-			size_ += len;
 			while((size_ > cap_size_ || count_ > cap_count_) && head_.lru_prev_ != &head_){
 				Eliminate(now_timeval.tv_sec);
 			}
@@ -200,6 +200,8 @@ public:
 
 private:
 	void deRef(LRUStringCacheHandle * handle){
+		assert(count_ > 0);
+		assert(size_ > 0);
 		--count_;
 		size_ -= sizeof(LRUStringCacheHandle) + handle->key_size_ + handle->value_size_;
 		free(handle);
