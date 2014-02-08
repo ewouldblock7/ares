@@ -39,7 +39,14 @@ void generateRandomString(std::string & str){
 class TestRun : public Runnable{
 public:
 	TestRun(boost::shared_ptr<StringCache> cache, uint32_t index) :
-		cache_(cache), index_(index), longest_consume_(0), shortest_consume_(ULONG_MAX){}
+		cache_(cache),
+		index_(index),
+		longest_consume_(0),
+		shortest_consume_(ULONG_MAX),
+		total_consume_(0){
+
+	}
+
 	virtual void run(){
 		for(uint32_t i = 0; i < ITEM_NUM; ++i){
 			std::stringstream ss;
@@ -60,13 +67,19 @@ public:
 			cache_->Insert(skey, sValue);
 			tick_count.End();
 			uint64_t consume = tick_count.GetConsumeUs();
-			if(consume > longest_consume_) longest_consume_ = consume;
-			if(consume < shortest_consume_) shortest_consume_ = consume;
+			calcConsume(consume);
 		}
 	};
 
 	uint64_t getLongGestConsume() {return longest_consume_;}
 	uint64_t getShortedGestConsume() {return shortest_consume_;}
+	uint64_t getAvgConsume() {return total_consume_ / ITEM_NUM;}
+
+	void calcConsume(uint64_t consume){
+		if(consume > longest_consume_) longest_consume_ = consume;
+		if(consume < shortest_consume_) shortest_consume_ = consume;
+		total_consume_ += consume;
+	}
 
 	virtual const char * descripe() {return "run insert";}
 
@@ -75,6 +88,7 @@ protected:
 	uint32_t index_;
 	uint64_t longest_consume_;
 	uint64_t shortest_consume_;
+	uint64_t total_consume_;
 };
 
 class TestRunInsertNoRead : public TestRun{
@@ -97,10 +111,7 @@ public:
             cache_->Insert(skey, sValue);
 			tick_count.End();
 			uint64_t consume = tick_count.GetConsumeUs();
-			if (consume > longest_consume_)
-				longest_consume_ = consume;
-			if (consume < shortest_consume_)
-				shortest_consume_ = consume;
+			calcConsume(consume);
         }
     };
 
@@ -126,10 +137,7 @@ public:
             cache_->Get(skey, value);
 			tick_count.End();
 			uint64_t consume = tick_count.GetConsumeUs();
-			if (consume > longest_consume_)
-				longest_consume_ = consume;
-			if (consume < shortest_consume_)
-				shortest_consume_ = consume;
+			calcConsume(consume);
         }
     };
 
@@ -205,8 +213,9 @@ int main(int argc, char ** argv){
 
 	for(uint32_t i = 0; i < runnables.size(); ++i){
 		TestRun * test_run = runnables[i];
-		fprintf(stderr, "%-20s longest_consume: %-10lu, shortest_consume:%-10lu \n",
-				test_run->descripe(), test_run->getLongGestConsume(), test_run->getShortedGestConsume());
+		fprintf(stderr, "%-20s longest_consume: %-10lu(us), shortest_consume:%-10lu(us), avg_consume:%-5lu(us)\n",
+				test_run->descripe(), test_run->getLongGestConsume(),
+				test_run->getShortedGestConsume(), test_run->getAvgConsume());
 	}
 
 	TestVisitor visitor;
