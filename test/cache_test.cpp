@@ -201,7 +201,7 @@ void CacheTest::TestStringCache(){
 			strcache_ptr->Insert(key, value, tick + 60);
 		}
 
-		sleep(60);
+		sleep(61);
 		for(uint32_t i = 0; i < count; ++i){
 			std::stringstream ss;
 			ss << "key_" << i;

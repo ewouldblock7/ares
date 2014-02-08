@@ -1,7 +1,7 @@
 
 CXX = g++ -g -O0
-BOOST_LIB = /home/ewouldblock/work/baidu/third-64/boost
-GTEST = /home/ewouldblock/work/baidu/app/mobile/flyflow/server/cbs/lib/output/gtest-1.6.0
+BOOST_LIB = /home/seven/baidu/third-64/boost
+GTEST = /home/seven/baidu/third-64/gtest
 CXXFLAGS  = -I. -I./include -I$(BOOST_LIB)/include -I$(GTEST)/include
 LFLAGS = -lpthread
 LIB = 
