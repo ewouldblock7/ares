@@ -36,6 +36,25 @@ void generateRandomString(std::string & str){
     }
 }
 
+class RunStat : public Runnable{
+public:
+	RunStat(boost::shared_ptr<StringCache> cache) : cache_(cache){
+
+	}
+	virtual void run(){
+		while (running_) {
+			std::string status;
+			cache_->Status(status);
+			printf("status:%s \n", status.c_str());
+			sleep(5);
+		}
+	}
+
+private:
+	boost::shared_ptr<StringCache> cache_;
+
+};
+
 class TestRun : public Runnable{
 public:
 	TestRun(boost::shared_ptr<StringCache> cache, uint32_t index) :
@@ -52,7 +71,7 @@ public:
 			std::stringstream ss;
 			ss<<"run_"<<index_<<"_key_"<<i;
 			std::string key = ss.str();
-			std::cout<<"write:"<<key<<std::endl;
+//			std::cout<<"write:"<<key<<std::endl;
 			Slice skey(key);
 			ss.str("");
 
@@ -101,7 +120,7 @@ public:
             std::stringstream ss;
             ss<<"run_"<<index_<<"_key_"<<i;
             std::string key = ss.str();
-            std::cout<<"write:"<<key<<std::endl;
+//            std::cout<<"write:"<<key<<std::endl;
             Slice skey(key);
 
             std::string add_value;
@@ -125,20 +144,22 @@ public:
 			TestRun(cache, index) {
 	}
     virtual void run(){
-        for(uint32_t i = 0; i < ITEM_NUM; ++i){
-            std::stringstream ss;
-            ss<<"run_"<<index_<<"_key_"<<i;
-            std::string key = ss.str();
-            std::cout<<"read:"<<key<<std::endl;
-            Slice skey(key);
-            std::string value;
-			TickCount tick_count;
-			tick_count.Begin();
-            cache_->Get(skey, value);
-			tick_count.End();
-			uint64_t consume = tick_count.GetConsumeUs();
-			calcConsume(consume);
-        }
+    	while(running_){
+            for(uint32_t i = 0; i < ITEM_NUM && running_; ++i){
+                std::stringstream ss;
+                ss<<"run_"<<index_<<"_key_"<<i;
+                std::string key = ss.str();
+    //            std::cout<<"read:"<<key<<std::endl;
+                Slice skey(key);
+                std::string value;
+    			TickCount tick_count;
+    			tick_count.Begin();
+                cache_->Get(skey, value);
+    			tick_count.End();
+    			uint64_t consume = tick_count.GetConsumeUs();
+    			calcConsume(consume);
+            }
+    	}
     };
 
     virtual const char * descripe() {return "run read";}
@@ -184,47 +205,83 @@ int main(int argc, char ** argv){
     }
 
 
-	boost::shared_ptr<StringCache> stringCache = newShardedLRUStringCache(capCount, CAP_SIZE);
+	boost::shared_ptr<StringCache> string_cache = newShardedLRUStringCache(capCount, CAP_SIZE);
 
 	printf("sizeof(int *) %lu, sizeof(int) %lu \n", sizeof(int *), sizeof(int));
 
+
+	RunStat stat_run(string_cache);
+	stat_run.start();
 	uint32_t runnum = TASK_NUM;
-	std::vector<TestRun *> runnables;
+	std::vector<TestRun *> insert_runnables;
 	for(uint32_t i = 0; i < runnum; ++i){
-	    runnables.push_back(new TestRun(stringCache, i));
+		insert_runnables.push_back(new TestRun(string_cache, i));
 	}
-	runnables.push_back(new TestRunInsertNoRead(stringCache, 10));
+	insert_runnables.push_back(new TestRunInsertNoRead(string_cache, 10));
 
+
+	std::vector<TestRun *> read_runnables;
 	for(uint32_t i = 0; i < runnum; ++i){
-	    runnables.push_back(new TestRunRead(stringCache, i));
+		TestRun * runnable = new TestRunRead(string_cache, i);
+		read_runnables.push_back(runnable);
 	}
 
-	runnables.push_back(new TestRunRead(stringCache, 12));
+	{
+		TestRun * runnable = new TestRunRead(string_cache, TASK_NUM + 100);
+		read_runnables.push_back(runnable);
 
+	}
 
-	for(uint32_t i = 0; i < runnables.size(); ++i){
-		runnables[i]->start();
+	for(uint32_t i = 0; i < read_runnables.size(); ++i){
+		read_runnables[i]->start();
+	}
+
+	for(uint32_t i = 0; i < insert_runnables.size(); ++i){
+		insert_runnables[i]->start();
 	}
 
 
-	for(uint32_t i = 0; i < runnables.size(); ++i){
-		runnables[i]->join();
+
+	for(uint32_t i = 0; i < insert_runnables.size(); ++i){
+		insert_runnables[i]->join();
 	}
 
-	for(uint32_t i = 0; i < runnables.size(); ++i){
-		TestRun * test_run = runnables[i];
-		fprintf(stderr, "%-20s longest_consume: %-10lu(us), shortest_consume:%-10lu(us), avg_consume:%-5lu(us)\n",
+	for(uint32_t i = 0; i < read_runnables.size(); ++i){
+		read_runnables[i]->stop();
+	}
+
+	for(uint32_t i = 0; i < read_runnables.size(); ++i){
+		read_runnables[i]->join();
+	}
+
+	stat_run.stop();
+	stat_run.join();
+
+	for(uint32_t i = 0; i < insert_runnables.size(); ++i){
+		TestRun * test_run = insert_runnables[i];
+		fprintf(stderr, "insert %-20s longest_consume: %-10lu(us), shortest_consume:%-10lu(us), avg_consume:%-5lu(us)\n",
+				test_run->descripe(), test_run->getLongGestConsume(),
+				test_run->getShortedGestConsume(), test_run->getAvgConsume());
+	}
+
+	for(uint32_t i = 0; i < read_runnables.size(); ++i){
+		TestRun * test_run = insert_runnables[i];
+		fprintf(stderr, "read  %-20s longest_consume: %-10lu(us), shortest_consume:%-10lu(us), avg_consume:%-5lu(us)\n",
 				test_run->descripe(), test_run->getLongGestConsume(),
 				test_run->getShortedGestConsume(), test_run->getAvgConsume());
 	}
 
 	TestVisitor visitor;
-	stringCache->Visit(visitor);
+	string_cache->Visit(visitor);
 
 	fprintf(stderr, "TestVisitor count: %u \n", visitor.GetCount());
 
-	for(uint32_t i = 0; i < runnables.size(); ++i){
-		delete runnables[i];
+	for(uint32_t i = 0; i < read_runnables.size(); ++i){
+		delete read_runnables[i];
+	}
+
+	for(uint32_t i = 0; i < insert_runnables.size(); ++i){
+		delete insert_runnables[i];
 	}
 }
 
