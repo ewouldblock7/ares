@@ -185,7 +185,12 @@ void CacheTest::TestStringCache(){
 			strcache_ptr->Get(key, value_get);
 			EXPECT_EQ(value, value_get);
 		}
+		std::string status;
+		strcache_ptr->Status(status);
+		printf("status:%s \n", status.c_str());
 	}
+
+
 
 	{
 		boost::shared_ptr<StringCache> strcache_ptr = newShardedLRUStringCache(10000, 1024 * 1024 * 10);
@@ -201,6 +206,7 @@ void CacheTest::TestStringCache(){
 			strcache_ptr->Insert(key, value, tick + 60);
 		}
 
+		printf("sleep for overdue........ \n");
 		sleep(61);
 		for(uint32_t i = 0; i < count; ++i){
 			std::stringstream ss;
@@ -213,6 +219,10 @@ void CacheTest::TestStringCache(){
 			strcache_ptr->Get(key, value_get);
 			EXPECT_TRUE(value_get.empty());
 		}
+
+		std::string status;
+		strcache_ptr->Status(status);
+		printf("status:%s \n", status.c_str());
 	}
 
 
@@ -253,6 +263,10 @@ void CacheTest::TestStringCache(){
 			strcache_ptr->Get(key, value_get);
 			EXPECT_EQ(value, value_get);
 		}
+
+		std::string status;
+		strcache_ptr->Status(status);
+		printf("status:%s \n", status.c_str());
 	}
 }
 
