@@ -34,6 +34,7 @@ public:
 	virtual bool Remove(const Slice & key) = 0;
 	virtual void Clear() = 0;
 	virtual void Visit(Visitor & visitor) = 0;
+	virtual void Status(std::string & status) = 0;
 
 };
 

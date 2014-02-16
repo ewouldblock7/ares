@@ -11,6 +11,7 @@
 #include <limits.h>
 #include <assert.h>
 #include <string>
+#include <sstream>
 #include <vector>
 #include "ares/mutex.h"
 #include "ares/slice.h"
@@ -44,17 +45,20 @@ struct LRUStringCacheHandle{
 	}
 };
 
-
 class LRUStringCache{
 public:
 	LRUStringCache(uint32_t cap_count, uint64_t cap_size) :
-		cap_count_(cap_count),
 		cap_size_(cap_size),
+		size_(0),
+		cap_count_(cap_count),
 		count_(0),
-		size_(0){
+		get_count_(0),
+		hit_count_(0){
+
 		memset(&head_, 0, sizeof(head_));
 		head_.lru_prev_ = &head_;
 		head_.lru_next_ = &head_;
+
 	}
 
 	~LRUStringCache() {
@@ -97,6 +101,7 @@ public:
 
 	uint32_t Get(const Slice & key, uint32_t hash, std::string & value){
 		MutexGuard guard(&mutex_);
+		++get_count_;
 		LRUStringCacheHandle * ptr = cache_table_.Get(key, hash);
 		if(ptr){
 			if(ptr->time_out_){
@@ -105,6 +110,7 @@ public:
 				if(now_timeval.tv_sec <= ptr->time_out_){
 					LRURemove(ptr);
 					LRUAppend(ptr);
+					++hit_count_;
 					value.assign(ptr->buf_ + key.size(), ptr->value_size_);
 				}else {
 					cache_table_.Remove(key, hash);
@@ -114,6 +120,7 @@ public:
 			} else {
 				LRURemove(ptr);
 				LRUAppend(ptr);
+				++hit_count_;
 				value.assign(ptr->buf_ + key.size(), ptr->value_size_);
 			}
 		}
@@ -122,6 +129,7 @@ public:
 
 	uint32_t Get(const Slice & key, uint32_t hash, char * value, uint32_t maxsize){
 		MutexGuard guard(&mutex_);
+		++get_count_;
 		LRUStringCacheHandle * ptr = cache_table_.Get(key, hash);
 		int ret = 0;
 		if(ptr){
@@ -131,6 +139,7 @@ public:
 				if(now_timeval.tv_sec <= ptr->time_out_){
 					LRURemove(ptr);
 					LRUAppend(ptr);
+					++hit_count_;
 					ret = CopyValue(ptr, value, maxsize);
 				}else {
 					cache_table_.Remove(key, hash);
@@ -140,6 +149,7 @@ public:
 			} else {
 				LRURemove(ptr);
 				LRUAppend(ptr);
+				++hit_count_;
 				ret = CopyValue(ptr, value, maxsize);
 			}
 		}
@@ -197,6 +207,32 @@ public:
 			ptr = tmp;
 		}
 	}
+
+
+	struct Stat{
+		Stat() :
+			size_(0),
+			count_(0),
+			hit_count_(0),
+			get_count_(0){
+		}
+
+		uint64_t size_;
+		uint32_t count_;
+		uint32_t hit_count_;
+		uint32_t get_count_;
+	};
+
+	Stat GetStatus(){
+		Stat stat;
+		stat.size_ = size_;
+		stat.count_ = count_;
+		stat.get_count_  = get_count_;
+		stat.hit_count_ = hit_count_;
+		return stat;
+	}
+
+
 
 private:
 	void deRef(LRUStringCacheHandle * handle){
@@ -267,10 +303,12 @@ private:
 	Mutex mutex_;
 	LRUStringCacheHandle head_;
 	CacheTable<LRUStringCacheHandle> cache_table_;
-	uint32_t cap_count_;
 	uint64_t cap_size_;
+	uint64_t size_;
+	uint32_t cap_count_;
 	uint32_t count_;
-	uint32_t size_;
+	uint32_t get_count_;
+	uint32_t hit_count_;
 };
 
 class ShardedLRUStringCache : public StringCache{
@@ -327,6 +365,25 @@ public:
 		for(uint32_t i = 0; i < slot_size_; ++i){
 			lru_string_caches_[i]->Visit(visitor);
 		}
+	}
+
+	virtual void Status(std::string & status){
+		LRUStringCache::Stat total_stat;
+		for(uint32_t i = 0; i < slot_size_; ++i){
+			LRUStringCache::Stat stat = lru_string_caches_[i]->GetStatus();
+			total_stat.count_ += stat.count_;
+			total_stat.size_ += stat.size_;
+			total_stat.hit_count_ += stat.hit_count_;
+			total_stat.get_count_ += stat.get_count_;
+		}
+
+		std::stringstream ss;
+		ss<<"count:"<<total_stat.count_<<std::endl;
+		ss<<"size:"<<total_stat.size_<<std::endl;
+		ss<<"hit:"<<total_stat.hit_count_<<std::endl;
+		ss<<"get:"<<total_stat.get_count_<<std::endl;
+		ss<<"hitrate:"<<((double)total_stat.hit_count_)/total_stat.get_count_<<std::endl;
+		status = ss.str();
 	}
 private:
 	uint64_t cap_size_;
