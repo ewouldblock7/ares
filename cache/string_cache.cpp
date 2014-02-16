@@ -382,7 +382,8 @@ public:
 		ss<<"size:"<<total_stat.size_<<std::endl;
 		ss<<"hit:"<<total_stat.hit_count_<<std::endl;
 		ss<<"get:"<<total_stat.get_count_<<std::endl;
-		ss<<"hitrate:"<<((double)total_stat.hit_count_)/total_stat.get_count_<<std::endl;
+		if(total_stat.get_count_)
+			ss<<"hitrate:"<<((double)total_stat.hit_count_)/total_stat.get_count_<<std::endl;
 		status = ss.str();
 	}
 private:
