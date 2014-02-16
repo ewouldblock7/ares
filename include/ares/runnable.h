@@ -16,7 +16,7 @@ namespace ares {
 
 class Runnable {
 public:
-	Runnable() : th_(0), running_(false){};
+	Runnable() : th_(0), running_(true){};
 	virtual ~Runnable(){};
 
 	virtual void run() = 0;
