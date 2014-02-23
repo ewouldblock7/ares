@@ -2,8 +2,8 @@ ares 一个多线程安全内存cache实现
 ========
 
 
-1. string_cache 是一个字符串的KV-内存cache的基类。ShardedLRUStringCache是string_cache的一个实现，  
-   支持LRU策略，支持渐进式rehash，支持缓存状态输出  
+1. string_cache 是一个字符串的KV-内存cache的基类。ShardedLRUStringCache是string_cache的一个  
+   实现，支持LRU策略，支持渐进式rehash，支持缓存状态输出  
 
 
 
