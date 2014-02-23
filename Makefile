@@ -1,9 +1,10 @@
 
-CXX = g++ -g -O0
+CXX = g++ -g -O2
 BOOST_LIB = /home/seven/baidu/third-64/boost
 GTEST = /home/seven/baidu/third-64/gtest
+TCMALLOC = /home/seven/baidu/third-64/tcmalloc
 CXXFLAGS  = -I. -I./include -I$(BOOST_LIB)/include -I$(GTEST)/include
-LFLAGS = -lpthread
+LFLAGS = -L$(TCMALLOC)/lib -ltcmalloc -lpthread
 LIB = 
 
 
