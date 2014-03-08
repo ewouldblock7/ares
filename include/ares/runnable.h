@@ -16,31 +16,35 @@ namespace ares {
 
 class Runnable {
 public:
-	Runnable() : th_(0), running_(true){};
-	virtual ~Runnable(){};
+    Runnable() :
+            th_(0), running_(true) {
+    }
+    virtual ~Runnable() {
+    }
 
-	virtual void run() = 0;
+    virtual void run() = 0;
 
-	void start();
+    void start();
 
-	static void * thread_work(void * arg) {
-		Runnable * runnable = static_cast<Runnable *>(arg);
-		runnable->run();
-		return NULL;
-	}
+    static void * thread_work(void * arg) {
+        Runnable * runnable = static_cast<Runnable *>(arg);
+        runnable->run();
+        return NULL;
+    }
 
-	void stop() {running_ = false;}
+    void stop() {
+        running_ = false;
+    }
 
-	void join();
-
+    void join();
 
 protected:
-	pthread_t th_;
-	bool running_;
+    pthread_t th_;
+    bool running_;
 
 private:
-	Runnable(const Runnable &);
-	Runnable & operator=(const Runnable &);
+    Runnable(const Runnable &);
+    Runnable & operator=(const Runnable &);
 };
 
 } /* namespace ares */

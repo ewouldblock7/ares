@@ -6,20 +6,18 @@
  */
 #include "ares/runnable.h"
 
+namespace ares {
 
-
-namespace ares{
-
-void Runnable::start(){
-	if(pthread_create(&th_, NULL, thread_work, this)){
-		ARES_WARNING("start thread fail");
-	}
+void Runnable::start() {
+    if (pthread_create(&th_, NULL, thread_work, this)) {
+        ARES_WARNING("start thread fail");
+    }
 }
 
-void Runnable::join(){
-	if(pthread_join(th_, NULL)){
-		ARES_WARNING("join thread fail");
-	}
+void Runnable::join() {
+    if (pthread_join(th_, NULL)) {
+        ARES_WARNING("join thread fail");
+    }
 }
 
 }

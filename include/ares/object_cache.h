@@ -17,26 +17,29 @@ class Slice;
 
 class ObjectCache {
 public:
-	ObjectCache();
-	virtual ~ObjectCache();
+    ObjectCache();
+    virtual ~ObjectCache();
 
-	class IterateVisitor {
-	public:
-		IterateVisitor(){};
-		virtual ~IterateVisitor(){};
-		virtual void Visit(const Slice & key, const boost::shared_ptr<void> & value) = 0;
-	};
+    class IterateVisitor {
+    public:
+        IterateVisitor() {
+        };
+        virtual ~IterateVisitor() {
+        };
+        virtual void Visit(const Slice & key, const boost::shared_ptr<void> & value) = 0;
+    };
 
-
-	virtual void Insert(const Slice & key, boost::shared_ptr<void> & value, uint32_t charge) = 0;
-	virtual boost::shared_ptr<void> Get(const Slice & key) = 0;
-	virtual bool Check(const Slice & key) = 0;
-	virtual bool Remove(const Slice & key) = 0;
-	virtual void Clear() = 0;
-	virtual void Visit(IterateVisitor & visitor) = 0;
+    virtual void Insert(const Slice & key, boost::shared_ptr<void> & value,
+            uint32_t charge) = 0;
+    virtual boost::shared_ptr<void> Get(const Slice & key) = 0;
+    virtual bool Check(const Slice & key) = 0;
+    virtual bool Remove(const Slice & key) = 0;
+    virtual void Clear() = 0;
+    virtual void Visit(IterateVisitor & visitor) = 0;
 };
 
-extern boost::shared_ptr<ObjectCache> newShardedLRUObjectCache(uint64_t charge_cap, uint32_t count_cap);
+extern boost::shared_ptr<ObjectCache> newShardedLRUObjectCache(
+        uint64_t charge_cap, uint32_t count_cap);
 
 } /* namespace ares */
 #endif /* OBJECT_CACHE_H_ */

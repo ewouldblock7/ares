@@ -12,71 +12,79 @@
 
 namespace ares {
 
-template <class T>
+template<class T>
 class BlockQueue {
 public:
-	BlockQueue() : mutex_(), cond_(&mutex_) {}
-	~BlockQueue(){}
+    BlockQueue() :
+        mutex_(),
+        cond_(&mutex_) {
+    }
 
-	void Produce(const T & t) {
-		MutexGuard guard(&mutex_);
-		queue_.push(t);
-		cond_.Signal();
-	}
+    ~BlockQueue() {
+    }
 
-	T Consume(){
-		MutexGuard guard(&mutex_);
-		while(queue_.empty()){
-			cond_.Wait();
-		}
-		T front = queue_.front();
-		queue_.pop();
-		return front;
-	}
+    void Produce(const T & t) {
+        MutexGuard guard(&mutex_);
+        queue_.push(t);
+        cond_.Signal();
+    }
 
-	uint32_t size() const {
-		MutexGuard guard(&mutex_);
-		return queue_.size();
-	}
+    T Consume() {
+        MutexGuard guard(&mutex_);
+        while (queue_.empty()) {
+            cond_.Wait();
+        }
+        T front = queue_.front();
+        queue_.pop();
+        return front;
+    }
+
+    uint32_t size() const {
+        MutexGuard guard(&mutex_);
+        return queue_.size();
+    }
 
 private:
-	Mutex mutex_;
-	Condition cond_;
-	std::queue<T> queue_;
+    Mutex mutex_;
+    Condition cond_;
+    std::queue<T> queue_;
 };
 
-
-template <class T>
-class BlockQueue <T *>{
+template<class T>
+class BlockQueue<T *> {
 public:
-	BlockQueue() : mutex_(), cond_(&mutex_) {}
-	~BlockQueue(){}
+    BlockQueue() :
+        mutex_(),
+        cond_(&mutex_) {
+    }
+    ~BlockQueue() {
+    }
 
-	void Produce(T * t) {
-		MutexGuard guard(&mutex_);
-		queue_.push(t);
-		cond_.Signal();
-	}
+    void Produce(T * t) {
+        MutexGuard guard(&mutex_);
+        queue_.push(t);
+        cond_.Signal();
+    }
 
-	T * Consume(){
-		MutexGuard guard(&mutex_);
-		while(queue_.empty()){
-			cond_.Wait();
-		}
-		T * front = queue_.front();
-		queue_.pop();
-		return front;
-	}
+    T * Consume() {
+        MutexGuard guard(&mutex_);
+        while (queue_.empty()) {
+            cond_.Wait();
+        }
+        T * front = queue_.front();
+        queue_.pop();
+        return front;
+    }
 
-	uint32_t size() const {
-		MutexGuard guard(&mutex_);
-		return queue_.size();
-	}
+    uint32_t size() const {
+        MutexGuard guard(&mutex_);
+        return queue_.size();
+    }
 
 private:
-	Mutex mutex_;
-	Condition cond_;
-	std::queue<T> queue_;
+    Mutex mutex_;
+    Condition cond_;
+    std::queue<T> queue_;
 };
 
 } /* namespace ares */

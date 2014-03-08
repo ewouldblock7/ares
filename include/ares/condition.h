@@ -13,16 +13,16 @@ namespace ares {
 
 class Condition {
 public:
-	Condition(Mutex * mutex);
-	~Condition();
+    Condition(Mutex * mutex);
+    ~Condition();
 
-	void Wait();
-	void Signal();
-	void BroadCast();
+    void Wait();
+    void Signal();
+    void BroadCast();
 
 private:
-	pthread_cond_t cond_;
-	Mutex * mutex_;
+    pthread_cond_t cond_;
+    Mutex * mutex_;
 };
 
 } /* namespace ares */
